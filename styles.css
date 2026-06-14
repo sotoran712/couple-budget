@@ -99,7 +99,7 @@ button {
 
 .setup-view {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
 }
@@ -349,6 +349,12 @@ select:focus {
 
 .button-row button {
   flex: 1;
+}
+
+.login-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .people-manager {

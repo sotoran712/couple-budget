@@ -1,4 +1,5 @@
 const CONFIG_KEY = "couple-budget-supabase-config";
+const LOGIN_PREF_KEY = "couple-budget-login-pref";
 const DEFAULT_SUPABASE_CONFIG = {
   url: "https://lrfipkqzjwniirqpflyh.supabase.co",
   key: "sb_publishable_bjzhUXn7_U4lpaKlLdHzqg_3nGXQFI1",
@@ -47,6 +48,8 @@ const els = {
   authForm: document.querySelector("#authForm"),
   emailInput: document.querySelector("#emailInput"),
   passwordInput: document.querySelector("#passwordInput"),
+  rememberEmailInput: document.querySelector("#rememberEmailInput"),
+  autoLoginInput: document.querySelector("#autoLoginInput"),
   createHouseholdForm: document.querySelector("#createHouseholdForm"),
   householdNameInput: document.querySelector("#householdNameInput"),
   joinHouseholdForm: document.querySelector("#joinHouseholdForm"),
@@ -112,6 +115,7 @@ async function boot() {
   bindMoneyInput(els.amountInput);
   bindMoneyInput(els.assetAmountInput);
   bindMoneyInput(els.quickAmountInput);
+  loadLoginPrefs();
 
   if (!client) {
     setStatus("Supabase 연결 정보를 먼저 저장하세요.");
@@ -124,6 +128,7 @@ async function boot() {
     session = nextSession;
     await refreshApp();
   });
+  await attemptAutoLogin();
   await refreshApp();
 }
 
@@ -156,11 +161,13 @@ function bindEvents() {
       return;
     }
 
+    saveLoginPrefs(action === "signin");
     setStatus(action === "signup" ? "회원가입이 완료되었습니다. 바로 로그인 상태로 전환됩니다." : "로그인했습니다.");
   });
 
   els.logoutButton.addEventListener("click", async () => {
     if (!client) return;
+    clearAutoLoginPassword();
     await client.auth.signOut();
     household = null;
     state = { people: [], entries: [], assets: [] };
@@ -328,6 +335,63 @@ function loadConfig() {
     els.supabaseKeyInput.value = DEFAULT_SUPABASE_CONFIG.key;
     initClient(DEFAULT_SUPABASE_CONFIG);
   }
+}
+
+function loadLoginPrefs() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(LOGIN_PREF_KEY) || "{}");
+    els.emailInput.value = prefs.email || "";
+    els.rememberEmailInput.checked = !!prefs.rememberEmail;
+    els.autoLoginInput.checked = !!prefs.autoLogin;
+    if (prefs.autoLogin && prefs.password) {
+      els.passwordInput.value = prefs.password;
+    }
+  } catch {
+    localStorage.removeItem(LOGIN_PREF_KEY);
+  }
+}
+
+function saveLoginPrefs(allowPasswordSave) {
+  const rememberEmail = els.rememberEmailInput.checked || els.autoLoginInput.checked;
+  const prefs = {
+    rememberEmail,
+    autoLogin: els.autoLoginInput.checked,
+    email: rememberEmail ? els.emailInput.value.trim() : "",
+    password: allowPasswordSave && els.autoLoginInput.checked ? els.passwordInput.value : "",
+  };
+  localStorage.setItem(LOGIN_PREF_KEY, JSON.stringify(prefs));
+}
+
+function clearAutoLoginPassword() {
+  try {
+    const prefs = JSON.parse(localStorage.getItem(LOGIN_PREF_KEY) || "{}");
+    prefs.autoLogin = false;
+    prefs.password = "";
+    localStorage.setItem(LOGIN_PREF_KEY, JSON.stringify(prefs));
+  } catch {
+    localStorage.removeItem(LOGIN_PREF_KEY);
+  }
+}
+
+async function attemptAutoLogin() {
+  if (session || !client) return;
+  let prefs = {};
+  try {
+    prefs = JSON.parse(localStorage.getItem(LOGIN_PREF_KEY) || "{}");
+  } catch {
+    return;
+  }
+  if (!prefs.autoLogin || !prefs.email || !prefs.password) return;
+  const result = await client.auth.signInWithPassword({
+    email: prefs.email,
+    password: prefs.password,
+  });
+  if (result.error) {
+    setStatus("자동 로그인에 실패했습니다. 비밀번호를 다시 입력해 주세요.");
+    clearAutoLoginPassword();
+    return;
+  }
+  session = result.data.session;
 }
 
 function initClient(config) {

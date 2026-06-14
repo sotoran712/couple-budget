@@ -21,7 +21,7 @@
       </section>
 
       <section class="setup-view" id="setupView">
-        <article class="panel setup-panel">
+        <article class="panel setup-panel config-panel hidden">
           <h2>Supabase 연결</h2>
           <p>Project URL과 publishable key를 저장하면 이 브라우저에서 클라우드 가계부를 사용할 수 있습니다.</p>
           <form id="configForm">
@@ -49,6 +49,16 @@
               비밀번호
               <input id="passwordInput" type="password" autocomplete="current-password" minlength="6" required />
             </label>
+            <div class="login-options">
+              <label class="check-row">
+                <input id="rememberEmailInput" type="checkbox" />
+                <span>이메일 저장</span>
+              </label>
+              <label class="check-row">
+                <input id="autoLoginInput" type="checkbox" />
+                <span>자동 로그인</span>
+              </label>
+            </div>
             <div class="button-row">
               <button class="primary-button" type="submit" data-auth-action="signin">로그인</button>
               <button class="secondary-button" type="submit" data-auth-action="signup">회원가입</button>
