@@ -320,6 +320,15 @@ function bindEvents() {
   });
 
   els.assetCancelButton.addEventListener("click", resetAssetForm);
+  els.assetList.addEventListener("click", (event) => {
+    if (event.target.closest("[data-remove-asset]")) return;
+    const item = event.target.closest("[data-edit-asset]");
+    if (!item) return;
+    const asset = state.assets.find((candidate) => candidate.id === item.dataset.editAsset);
+    if (asset) {
+      editAsset(asset);
+    }
+  });
 
   els.filterPerson.addEventListener("change", render);
 }
@@ -1038,15 +1047,6 @@ function renderAssets() {
     )
     .join("");
 
-  els.assetList.querySelectorAll("[data-edit-asset]").forEach((item) => {
-    item.addEventListener("click", () => {
-      const asset = state.assets.find((candidate) => candidate.id === item.dataset.editAsset);
-      if (asset) {
-        editAsset(asset);
-      }
-    });
-  });
-
   els.assetList.querySelectorAll("[data-remove-asset]").forEach((button) => {
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
@@ -1068,6 +1068,7 @@ function editAsset(asset) {
   els.assetAmountInput.value = asset.amount.toLocaleString("ko-KR");
   els.assetSubmitButton.textContent = "자산 수정";
   els.assetCancelButton.classList.remove("hidden");
+  els.assetForm.scrollIntoView({ behavior: "smooth", block: "start" });
   els.assetNameInput.focus();
 }
 
