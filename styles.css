@@ -511,8 +511,15 @@ button.calendar-cell:hover,
   background: #d9ded7;
 }
 
-.day-detail-title {
+.day-detail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
+}
+
+.day-detail-title {
   color: var(--muted);
 }
 
@@ -897,14 +904,20 @@ button.calendar-cell:hover,
     font-size: 0.68rem;
   }
 
-  .view-switch,
-  .day-detail-title,
-  .entry-list {
+  .view-switch {
     display: none;
   }
 
   .calendar-view {
-    margin-bottom: 0;
+    margin-bottom: 12px;
+  }
+
+  .day-detail-bar {
+    display: flex;
+  }
+
+  .day-detail-title {
+    font-size: 0.9rem;
   }
 
   .quick-entry-panel {

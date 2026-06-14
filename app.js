@@ -70,6 +70,7 @@ const els = {
   peopleChips: document.querySelector("#peopleChips"),
   insightStrip: document.querySelector("#insightStrip"),
   calendarView: document.querySelector("#calendarView"),
+  dayDetailBar: document.querySelector("#dayDetailBar"),
   dayDetailTitle: document.querySelector("#dayDetailTitle"),
   entryList: document.querySelector("#entryList"),
   categoryStats: document.querySelector("#categoryStats"),
@@ -91,6 +92,7 @@ const els = {
   quickCategoryInput: document.querySelector("#quickCategoryInput"),
   quickPersonInput: document.querySelector("#quickPersonInput"),
   quickFixedInput: document.querySelector("#quickFixedInput"),
+  quickAddButton: document.querySelector("#quickAddButton"),
   entryTemplate: document.querySelector("#entryTemplate"),
   statusLine: document.querySelector("#statusLine"),
 };
@@ -226,6 +228,10 @@ function bindEvents() {
     if (event.target === els.quickEntryModal) {
       closeQuickEntryModal();
     }
+  });
+
+  els.quickAddButton.addEventListener("click", () => {
+    openQuickEntryModal(selectedDate || `${monthKey(selectedMonth)}-01`);
   });
 
   els.quickEntryForm.addEventListener("submit", async (event) => {
@@ -761,7 +767,7 @@ function renderEntries() {
   const entries = entriesForSelectedView();
   els.entryList.innerHTML = "";
   els.calendarView.classList.toggle("hidden", selectedView !== "calendar");
-  els.dayDetailTitle.classList.toggle("hidden", selectedView !== "calendar");
+  els.dayDetailBar.classList.toggle("hidden", selectedView !== "calendar");
 
   if (selectedView === "calendar") {
     const label = selectedDate ? selectedDate.replaceAll("-", ".") : "날짜를 선택하세요";
@@ -853,10 +859,6 @@ function renderCalendar() {
       selectedDate = button.dataset.date;
       els.calendarView.querySelectorAll("[data-date]").forEach((item) => item.classList.remove("selected"));
       button.classList.add("selected");
-      if (isMobileView()) {
-        openQuickEntryModal(selectedDate);
-        return;
-      }
       renderEntries();
     });
   });
