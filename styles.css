@@ -337,6 +337,15 @@ select:focus {
   background: var(--green-soft);
 }
 
+.ghost-button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fff;
+  font-weight: 900;
+}
+
 .compact {
   min-height: 32px;
   border-radius: 999px;
@@ -673,6 +682,12 @@ button.calendar-cell:hover,
   border-radius: 8px;
   padding: 10px;
   background: #fff;
+  cursor: pointer;
+}
+
+.asset-item:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(47, 125, 92, 0.1);
 }
 
 .asset-item div {

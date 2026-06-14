@@ -34,6 +34,7 @@ let selectedMonth = new Date();
 let selectedView = "list";
 let selectedDate = null;
 let editingEntry = null;
+let editingAsset = null;
 const mobileQuery = window.matchMedia("(max-width: 680px)");
 
 const els = {
@@ -84,6 +85,8 @@ const els = {
   assetCategoryInput: document.querySelector("#assetCategoryInput"),
   assetNameInput: document.querySelector("#assetNameInput"),
   assetAmountInput: document.querySelector("#assetAmountInput"),
+  assetSubmitButton: document.querySelector("#assetSubmitButton"),
+  assetCancelButton: document.querySelector("#assetCancelButton"),
   assetTotal: document.querySelector("#assetTotal"),
   assetList: document.querySelector("#assetList"),
   quickEntryModal: document.querySelector("#quickEntryModal"),
@@ -296,22 +299,27 @@ function bindEvents() {
     const name = els.assetNameInput.value.trim();
     if (!household || !name || Number.isNaN(amount) || amount < 0) return;
 
-    const { error } = await client.from("assets").insert({
-      household_id: household.id,
+    const payload = {
       category: els.assetCategoryInput.value,
       name,
       amount,
-    });
+    };
 
-    if (error) {
-      setStatus(error.message);
+    const result = editingAsset
+      ? await client.from("assets").update(payload).eq("id", editingAsset.id).eq("household_id", household.id)
+      : await client.from("assets").insert({ household_id: household.id, ...payload });
+
+    if (result.error) {
+      setStatus(result.error.message);
       return;
     }
 
-    els.assetForm.reset();
+    resetAssetForm();
     await loadBudgetData();
     renderStats();
   });
+
+  els.assetCancelButton.addEventListener("click", resetAssetForm);
 
   els.filterPerson.addEventListener("change", render);
 }
@@ -1018,7 +1026,7 @@ function renderAssets() {
   els.assetList.innerHTML = state.assets
     .map(
       (asset) => `
-        <article class="asset-item">
+        <article class="asset-item" data-edit-asset="${asset.id}">
           <div>
             <strong>${asset.name}</strong>
             <span>${asset.category}</span>
@@ -1030,8 +1038,18 @@ function renderAssets() {
     )
     .join("");
 
+  els.assetList.querySelectorAll("[data-edit-asset]").forEach((item) => {
+    item.addEventListener("click", () => {
+      const asset = state.assets.find((candidate) => candidate.id === item.dataset.editAsset);
+      if (asset) {
+        editAsset(asset);
+      }
+    });
+  });
+
   els.assetList.querySelectorAll("[data-remove-asset]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
       const { error } = await client.from("assets").delete().eq("id", button.dataset.removeAsset).eq("household_id", household.id);
       if (error) {
         setStatus(error.message);
@@ -1041,6 +1059,23 @@ function renderAssets() {
       renderStats();
     });
   });
+}
+
+function editAsset(asset) {
+  editingAsset = asset;
+  els.assetCategoryInput.value = asset.category;
+  els.assetNameInput.value = asset.name;
+  els.assetAmountInput.value = asset.amount.toLocaleString("ko-KR");
+  els.assetSubmitButton.textContent = "자산 수정";
+  els.assetCancelButton.classList.remove("hidden");
+  els.assetNameInput.focus();
+}
+
+function resetAssetForm() {
+  editingAsset = null;
+  els.assetForm.reset();
+  els.assetSubmitButton.textContent = "자산 추가";
+  els.assetCancelButton.classList.add("hidden");
 }
 
 function renderRows(container, rows, colorKey) {
