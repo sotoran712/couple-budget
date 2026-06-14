@@ -698,6 +698,49 @@ button.calendar-cell:hover,
   font-weight: 800;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: end center;
+  padding: 18px;
+  background: rgba(34, 40, 50, 0.38);
+}
+
+.quick-entry-panel {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: var(--panel);
+  box-shadow: 0 24px 80px rgba(34, 40, 50, 0.2);
+}
+
+.modal-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.modal-heading span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.quick-type {
+  width: 100%;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 @media (max-width: 980px) {
   .summary-grid,
   .workspace,
@@ -852,6 +895,24 @@ button.calendar-cell:hover,
   .calendar-income,
   .calendar-count {
     font-size: 0.68rem;
+  }
+
+  .view-switch,
+  .day-detail-title,
+  .entry-list {
+    display: none;
+  }
+
+  .calendar-view {
+    margin-bottom: 0;
+  }
+
+  .quick-entry-panel {
+    padding: 15px;
+  }
+
+  .quick-grid {
+    grid-template-columns: 1fr;
   }
 
   .entry-icon {

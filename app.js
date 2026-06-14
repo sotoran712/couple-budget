@@ -28,6 +28,7 @@ let state = { people: [], entries: [], assets: [] };
 let selectedMonth = new Date();
 let selectedView = "list";
 let selectedDate = null;
+const mobileQuery = window.matchMedia("(max-width: 680px)");
 
 const els = {
   accountEmail: document.querySelector("#accountEmail"),
@@ -79,6 +80,17 @@ const els = {
   assetAmountInput: document.querySelector("#assetAmountInput"),
   assetTotal: document.querySelector("#assetTotal"),
   assetList: document.querySelector("#assetList"),
+  quickEntryModal: document.querySelector("#quickEntryModal"),
+  quickEntryForm: document.querySelector("#quickEntryForm"),
+  quickEntryClose: document.querySelector("#quickEntryClose"),
+  quickDateLabel: document.querySelector("#quickDateLabel"),
+  quickDateInput: document.querySelector("#quickDateInput"),
+  quickEntryType: document.querySelector("#quickEntryType"),
+  quickAmountInput: document.querySelector("#quickAmountInput"),
+  quickTitleInput: document.querySelector("#quickTitleInput"),
+  quickCategoryInput: document.querySelector("#quickCategoryInput"),
+  quickPersonInput: document.querySelector("#quickPersonInput"),
+  quickFixedInput: document.querySelector("#quickFixedInput"),
   entryTemplate: document.querySelector("#entryTemplate"),
   statusLine: document.querySelector("#statusLine"),
 };
@@ -90,8 +102,10 @@ async function boot() {
   loadConfig();
   renderCategoryOptions();
   els.dateInput.value = todayISO();
+  syncViewForViewport();
   bindMoneyInput(els.amountInput);
   bindMoneyInput(els.assetAmountInput);
+  bindMoneyInput(els.quickAmountInput);
 
   if (!client) {
     setStatus("Supabase 연결 정보를 먼저 저장하세요.");
@@ -175,6 +189,20 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("[data-quick-type]").forEach((button) => {
+    button.addEventListener("click", () => {
+      els.quickEntryType.value = button.dataset.quickType;
+      document.querySelectorAll("[data-quick-type]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      renderQuickCategoryOptions();
+    });
+  });
+
+  mobileQuery.addEventListener("change", () => {
+    syncViewForViewport();
+    renderEntries();
+  });
+
   els.prevMonth.addEventListener("click", () => {
     selectedMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1);
     selectedDate = null;
@@ -193,55 +221,49 @@ function bindEvents() {
     setStatus("초대 코드를 복사했습니다.");
   });
 
+  els.quickEntryClose.addEventListener("click", closeQuickEntryModal);
+  els.quickEntryModal.addEventListener("click", (event) => {
+    if (event.target === els.quickEntryModal) {
+      closeQuickEntryModal();
+    }
+  });
+
+  els.quickEntryForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const amount = parseMoney(els.quickAmountInput.value);
+    if (!amount || amount < 1 || !household) return;
+
+    const saved = await saveEntry({
+      type: els.quickEntryType.value,
+      date: els.quickDateInput.value,
+      amount,
+      title: els.quickTitleInput.value.trim(),
+      category: els.quickCategoryInput.value,
+      personId: els.quickPersonInput.value || null,
+      fixed: els.quickFixedInput.checked,
+    });
+    if (!saved) return;
+
+    closeQuickEntryModal();
+    await loadBudgetData();
+    render();
+  });
+
   els.entryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const amount = parseMoney(els.amountInput.value);
     if (!amount || amount < 1 || !household) return;
 
-    const personId = els.personInput.value || null;
-    const date = els.dateInput.value;
-    let fixedItemId = null;
-
-    if (els.fixedInput.checked) {
-      const fixedResult = await client
-        .from("fixed_items")
-        .insert({
-          household_id: household.id,
-          type: els.entryType.value,
-          day_of_month: Number(date.slice(-2)),
-          amount,
-          title: els.titleInput.value.trim(),
-          category: els.categoryInput.value,
-          person_id: personId,
-          created_by: session.user.id,
-        })
-        .select("id")
-        .single();
-
-      if (fixedResult.error) {
-        setStatus(fixedResult.error.message);
-        return;
-      }
-
-      fixedItemId = fixedResult.data.id;
-    }
-
-    const { error } = await client.from("transactions").insert({
-      household_id: household.id,
+    const saved = await saveEntry({
       type: els.entryType.value,
-      date,
+      date: els.dateInput.value,
       amount,
       title: els.titleInput.value.trim(),
       category: els.categoryInput.value,
-      person_id: personId,
-      fixed_item_id: fixedItemId,
-      created_by: session.user.id,
+      personId: els.personInput.value || null,
+      fixed: els.fixedInput.checked,
     });
-
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
+    if (!saved) return;
 
     els.entryForm.reset();
     els.dateInput.value = todayISO();
@@ -354,6 +376,19 @@ function showBudget() {
   els.budgetView.classList.remove("hidden");
 }
 
+function isMobileView() {
+  return mobileQuery.matches;
+}
+
+function syncViewForViewport() {
+  if (isMobileView()) {
+    selectedView = "calendar";
+  }
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === selectedView);
+  });
+}
+
 async function loadHousehold() {
   household = null;
   const { data, error } = await client
@@ -422,6 +457,53 @@ async function joinHousehold(inviteCode) {
 
   setStatus("우리집에 참여했습니다.");
   await refreshApp();
+}
+
+async function saveEntry({ type, date, amount, title, category, personId, fixed }) {
+  let fixedItemId = null;
+
+  if (fixed) {
+    const fixedResult = await client
+      .from("fixed_items")
+      .insert({
+        household_id: household.id,
+        type,
+        day_of_month: Number(date.slice(-2)),
+        amount,
+        title,
+        category,
+        person_id: personId,
+        created_by: session.user.id,
+      })
+      .select("id")
+      .single();
+
+    if (fixedResult.error) {
+      setStatus(fixedResult.error.message);
+      return false;
+    }
+
+    fixedItemId = fixedResult.data.id;
+  }
+
+  const { error } = await client.from("transactions").insert({
+    household_id: household.id,
+    type,
+    date,
+    amount,
+    title,
+    category,
+    person_id: personId,
+    fixed_item_id: fixedItemId,
+    created_by: session.user.id,
+  });
+
+  if (error) {
+    setStatus(error.message);
+    return false;
+  }
+
+  return true;
 }
 
 async function loadBudgetData() {
@@ -570,9 +652,14 @@ function render() {
 
 function renderPeople() {
   const selectedPerson = els.personInput.value;
+  const selectedQuickPerson = els.quickPersonInput.value;
   els.personInput.innerHTML = state.people.map((person) => `<option value="${person.id}">${person.name}</option>`).join("");
+  els.quickPersonInput.innerHTML = state.people.map((person) => `<option value="${person.id}">${person.name}</option>`).join("");
   if (state.people.some((person) => person.id === selectedPerson)) {
     els.personInput.value = selectedPerson;
+  }
+  if (state.people.some((person) => person.id === selectedQuickPerson)) {
+    els.quickPersonInput.value = selectedQuickPerson;
   }
 
   const currentFilter = els.filterPerson.value || "전체";
@@ -606,8 +693,40 @@ async function removePerson(personId) {
 }
 
 function renderCategoryOptions() {
-  const type = els.entryType.value;
-  els.categoryInput.innerHTML = categories[type].map((category) => `<option value="${category}">${category}</option>`).join("");
+  renderOptions(els.categoryInput, categories[els.entryType.value]);
+  renderQuickCategoryOptions();
+}
+
+function renderQuickCategoryOptions() {
+  renderOptions(els.quickCategoryInput, categories[els.quickEntryType.value]);
+}
+
+function renderOptions(select, options) {
+  const selected = select.value;
+  select.innerHTML = options.map((option) => `<option value="${option}">${option}</option>`).join("");
+  if (options.includes(selected)) {
+    select.value = selected;
+  }
+}
+
+function openQuickEntryModal(date) {
+  selectedDate = date;
+  els.quickDateInput.value = date;
+  els.quickDateLabel.textContent = date.replaceAll("-", ".");
+  els.quickEntryType.value = "expense";
+  document.querySelectorAll("[data-quick-type]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.quickType === "expense");
+  });
+  renderQuickCategoryOptions();
+  els.quickEntryForm.reset();
+  els.quickDateInput.value = date;
+  els.quickEntryType.value = "expense";
+  els.quickEntryModal.classList.remove("hidden");
+  requestAnimationFrame(() => els.quickAmountInput.focus());
+}
+
+function closeQuickEntryModal() {
+  els.quickEntryModal.classList.add("hidden");
 }
 
 function renderSummary() {
@@ -637,6 +756,7 @@ function renderSummary() {
 }
 
 function renderEntries() {
+  syncViewForViewport();
   renderCalendar();
   const entries = entriesForSelectedView();
   els.entryList.innerHTML = "";
@@ -731,6 +851,12 @@ function renderCalendar() {
   els.calendarView.querySelectorAll("[data-date]").forEach((button) => {
     button.addEventListener("click", () => {
       selectedDate = button.dataset.date;
+      els.calendarView.querySelectorAll("[data-date]").forEach((item) => item.classList.remove("selected"));
+      button.classList.add("selected");
+      if (isMobileView()) {
+        openQuickEntryModal(selectedDate);
+        return;
+      }
       renderEntries();
     });
   });
