@@ -718,12 +718,22 @@ button.calendar-cell:hover,
 @media (max-width: 680px) {
   .app-shell {
     width: min(100% - 22px, 1180px);
-    padding-top: 18px;
+    padding: 12px 0 22px;
   }
 
   .topbar {
     align-items: stretch;
     flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
   }
 
   .toolbar,
@@ -747,6 +757,7 @@ button.calendar-cell:hover,
   .insight-strip,
   .setup-view {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .balance-card,
@@ -754,8 +765,78 @@ button.calendar-cell:hover,
     grid-column: auto;
   }
 
+  .summary-grid {
+    margin-bottom: 10px;
+  }
+
+  .summary-card {
+    min-height: 82px;
+    padding: 13px;
+    gap: 6px;
+  }
+
+  .balance-card {
+    min-height: 108px;
+  }
+
+  .workspace {
+    gap: 10px;
+  }
+
+  .panel {
+    padding: 13px;
+  }
+
+  .panel-heading {
+    margin-bottom: 12px;
+  }
+
+  .input-panel {
+    order: 1;
+  }
+
+  .list-panel {
+    order: 2;
+    min-height: auto;
+  }
+
+  .stats-panel {
+    order: 3;
+  }
+
+  form {
+    gap: 9px;
+  }
+
+  label {
+    gap: 5px;
+  }
+
+  input,
+  select {
+    min-height: 40px;
+  }
+
+  .primary-button,
+  .secondary-button {
+    min-height: 40px;
+  }
+
+  .people-manager,
+  .couple-split,
+  .asset-section {
+    margin-top: 16px;
+    padding-top: 14px;
+  }
+
+  .insight {
+    min-height: 58px;
+    padding: 10px;
+  }
+
   .entry-item {
     grid-template-columns: 38px minmax(0, 1fr) 28px;
+    min-height: 62px;
   }
 
   .calendar-view {
