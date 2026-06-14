@@ -1,4 +1,8 @@
 const CONFIG_KEY = "couple-budget-supabase-config";
+const DEFAULT_SUPABASE_CONFIG = {
+  url: "https://lrfipkqzjwniirqpflyh.supabase.co",
+  key: "sb_publishable_bjzhUXn7_U4lpaKlLdHzqg_3nGXQFI1",
+};
 
 const categories = {
   expense: ["식비", "카페", "생활", "교통", "주거", "데이트", "의료", "선물", "기타"],
@@ -307,7 +311,12 @@ function bindEvents() {
 
 function loadConfig() {
   const saved = localStorage.getItem(CONFIG_KEY);
-  if (!saved) return;
+  if (!saved) {
+    els.supabaseUrlInput.value = DEFAULT_SUPABASE_CONFIG.url;
+    els.supabaseKeyInput.value = DEFAULT_SUPABASE_CONFIG.key;
+    initClient(DEFAULT_SUPABASE_CONFIG);
+    return;
+  }
   try {
     const config = JSON.parse(saved);
     els.supabaseUrlInput.value = config.url || "";
@@ -315,6 +324,9 @@ function loadConfig() {
     initClient(config);
   } catch {
     localStorage.removeItem(CONFIG_KEY);
+    els.supabaseUrlInput.value = DEFAULT_SUPABASE_CONFIG.url;
+    els.supabaseKeyInput.value = DEFAULT_SUPABASE_CONFIG.key;
+    initClient(DEFAULT_SUPABASE_CONFIG);
   }
 }
 
