@@ -62,6 +62,7 @@ const els = {
   titleInput: document.querySelector("#titleInput"),
   categoryInput: document.querySelector("#categoryInput"),
   personInput: document.querySelector("#personInput"),
+  fixedInput: document.querySelector("#fixedInput"),
   filterPerson: document.querySelector("#filterPerson"),
   personForm: document.querySelector("#personForm"),
   newPersonInput: document.querySelector("#newPersonInput"),
@@ -198,14 +199,42 @@ function bindEvents() {
     if (!amount || amount < 1 || !household) return;
 
     const personId = els.personInput.value || null;
+    const date = els.dateInput.value;
+    let fixedItemId = null;
+
+    if (els.fixedInput.checked) {
+      const fixedResult = await client
+        .from("fixed_items")
+        .insert({
+          household_id: household.id,
+          type: els.entryType.value,
+          day_of_month: Number(date.slice(-2)),
+          amount,
+          title: els.titleInput.value.trim(),
+          category: els.categoryInput.value,
+          person_id: personId,
+          created_by: session.user.id,
+        })
+        .select("id")
+        .single();
+
+      if (fixedResult.error) {
+        setStatus(fixedResult.error.message);
+        return;
+      }
+
+      fixedItemId = fixedResult.data.id;
+    }
+
     const { error } = await client.from("transactions").insert({
       household_id: household.id,
       type: els.entryType.value,
-      date: els.dateInput.value,
+      date,
       amount,
       title: els.titleInput.value.trim(),
       category: els.categoryInput.value,
       person_id: personId,
+      fixed_item_id: fixedItemId,
       created_by: session.user.id,
     });
 
@@ -396,11 +425,13 @@ async function joinHousehold(inviteCode) {
 }
 
 async function loadBudgetData() {
+  await materializeFixedItemsForMonth(selectedMonth);
+
   const [peopleResult, transactionsResult, assetsResult] = await Promise.all([
     client.from("people").select("id, name").eq("household_id", household.id).order("created_at"),
     client
       .from("transactions")
-      .select("id, type, date, amount, title, category, person_id, people(name)")
+      .select("id, type, date, amount, title, category, person_id, fixed_item_id, people(name)")
       .eq("household_id", household.id)
       .order("date", { ascending: false }),
     client.from("assets").select("id, category, name, amount").eq("household_id", household.id).order("created_at"),
@@ -417,6 +448,60 @@ async function loadBudgetData() {
     person: entry.people?.name || "미지정",
   }));
   state.assets = assetsResult.data || [];
+}
+
+async function materializeFixedItemsForMonth(date) {
+  if (!household) return;
+  const { data: fixedItems, error } = await client
+    .from("fixed_items")
+    .select("id, type, day_of_month, amount, title, category, person_id, created_by")
+    .eq("household_id", household.id)
+    .eq("active", true);
+
+  if (error) {
+    setStatus(error.message);
+    return;
+  }
+
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const key = monthKey(date);
+  const lastDate = new Date(year, month + 1, 0).getDate();
+
+  for (const item of fixedItems || []) {
+    const day = Math.min(item.day_of_month, lastDate);
+    const targetDate = `${key}-${String(day).padStart(2, "0")}`;
+    const existing = await client
+      .from("transactions")
+      .select("id")
+      .eq("household_id", household.id)
+      .eq("fixed_item_id", item.id)
+      .eq("date", targetDate)
+      .maybeSingle();
+
+    if (existing.error) {
+      setStatus(existing.error.message);
+      continue;
+    }
+
+    if (existing.data) continue;
+
+    const insertResult = await client.from("transactions").insert({
+      household_id: household.id,
+      type: item.type,
+      date: targetDate,
+      amount: item.amount,
+      title: item.title,
+      category: item.category,
+      person_id: item.person_id,
+      fixed_item_id: item.id,
+      created_by: item.created_by,
+    });
+
+    if (insertResult.error) {
+      setStatus(insertResult.error.message);
+    }
+  }
 }
 
 function todayISO() {
@@ -582,7 +667,7 @@ function renderEntries() {
     icon.textContent = entry.category.slice(0, 1);
     icon.style.background = categoryColors[entry.category] || "#7a7f87";
     title.textContent = entry.title;
-    meta.textContent = `${entry.date} · ${entry.category} · ${entry.person}`;
+    meta.textContent = `${entry.date} · ${entry.category} · ${entry.person}${entry.fixed_item_id ? " · 고정비" : ""}`;
     money.textContent = `${entry.type === "income" ? "+" : "-"}${formatWon(entry.amount)}`;
     money.classList.add(entry.type);
     deleteButton.addEventListener("click", async () => {

@@ -305,6 +305,19 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(47, 125, 92, 0.14);
 }
 
+.check-row {
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+}
+
+.check-row input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--green);
+}
+
 .primary-button,
 .secondary-button {
   min-height: 43px;
