@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>우리집 가계부</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="월간 요약">
+        <div>
+          <p class="eyebrow">Cloud Couple Budget</p>
+          <h1>우리집 가계부</h1>
+        </div>
+        <div class="account-box">
+          <span id="accountEmail">연결 전</span>
+          <button class="secondary-button compact" id="logoutButton" type="button">로그아웃</button>
+        </div>
+      </section>
+
+      <section class="setup-view" id="setupView">
+        <article class="panel setup-panel">
+          <h2>Supabase 연결</h2>
+          <p>Project URL과 publishable key를 저장하면 이 브라우저에서 클라우드 가계부를 사용할 수 있습니다.</p>
+          <form id="configForm">
+            <label>
+              Project URL
+              <input id="supabaseUrlInput" type="url" placeholder="https://xxxx.supabase.co" required />
+            </label>
+            <label>
+              Publishable key
+              <input id="supabaseKeyInput" type="password" placeholder="sb_publishable_..." required />
+            </label>
+            <button class="primary-button" type="submit">연결 저장</button>
+          </form>
+        </article>
+
+        <article class="panel setup-panel">
+          <h2>로그인</h2>
+          <p>처음이면 회원가입, 이미 만들었다면 로그인하면 됩니다.</p>
+          <form id="authForm">
+            <label>
+              이메일
+              <input id="emailInput" type="email" autocomplete="email" required />
+            </label>
+            <label>
+              비밀번호
+              <input id="passwordInput" type="password" autocomplete="current-password" minlength="6" required />
+            </label>
+            <div class="button-row">
+              <button class="primary-button" type="submit" data-auth-action="signin">로그인</button>
+              <button class="secondary-button" type="submit" data-auth-action="signup">회원가입</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="panel setup-panel household-setup" id="householdSetup">
+          <h2>우리집 시작하기</h2>
+          <p>한 사람이 먼저 우리집을 만들고, 배우자는 초대 코드로 참여하면 됩니다.</p>
+          <form id="createHouseholdForm">
+            <label>
+              가구 이름
+              <input id="householdNameInput" type="text" value="우리집" maxlength="20" required />
+            </label>
+            <button class="primary-button" type="submit">우리집 만들기</button>
+          </form>
+          <form id="joinHouseholdForm">
+            <label>
+              초대 코드
+              <input id="inviteCodeInput" type="text" placeholder="배우자 화면의 초대 코드를 입력" />
+            </label>
+            <button class="secondary-button" type="submit">초대 코드로 참여</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="budget-view hidden" id="budgetView">
+        <section class="toolbar">
+          <div class="month-control">
+            <button class="icon-button" id="prevMonth" type="button" aria-label="이전 달">
+              <span aria-hidden="true">‹</span>
+            </button>
+            <strong id="currentMonth"></strong>
+            <button class="icon-button" id="nextMonth" type="button" aria-label="다음 달">
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+          <div class="invite-box">
+            <span>초대 코드</span>
+            <code id="inviteCode"></code>
+            <button class="secondary-button compact" id="copyInviteButton" type="button">복사</button>
+          </div>
+        </section>
+
+        <section class="summary-grid" aria-label="이번 달 집계">
+          <article class="summary-card balance-card">
+            <span>남은 금액</span>
+            <strong id="remainingAmount">0원</strong>
+            <div class="progress-track" aria-hidden="true">
+              <div id="budgetProgress"></div>
+            </div>
+          </article>
+          <article class="summary-card">
+            <span>전월 수입</span>
+            <strong id="incomeAmount">0원</strong>
+          </article>
+          <article class="summary-card">
+            <span>지출</span>
+            <strong id="expenseAmount">0원</strong>
+          </article>
+          <article class="summary-card">
+            <span>저축률</span>
+            <strong id="savingRate">0%</strong>
+          </article>
+        </section>
+
+        <section class="workspace">
+          <aside class="panel input-panel">
+            <div class="panel-heading">
+              <h2>기록하기</h2>
+              <div class="segmented" role="tablist" aria-label="거래 유형">
+                <button class="active" type="button" data-type="expense">지출</button>
+                <button type="button" data-type="income">전월 수입</button>
+              </div>
+            </div>
+
+            <form id="entryForm">
+              <input type="hidden" id="entryType" value="expense" />
+              <label>
+                날짜
+                <input id="dateInput" type="date" required />
+              </label>
+              <label>
+                금액
+                <input id="amountInput" type="text" inputmode="numeric" placeholder="예: 45,000" required />
+              </label>
+              <label>
+                내용
+                <input id="titleInput" type="text" maxlength="28" placeholder="장보기, 월급, 외식..." required />
+              </label>
+              <label>
+                분류
+                <select id="categoryInput"></select>
+              </label>
+              <label>
+                사용한 사람
+                <select id="personInput"></select>
+              </label>
+              <button class="primary-button" type="submit">추가</button>
+            </form>
+
+            <div class="people-manager">
+              <h3>사용자</h3>
+              <form id="personForm" class="inline-form">
+                <input id="newPersonInput" type="text" maxlength="8" placeholder="이름 추가" />
+                <button class="secondary-button" type="submit">추가</button>
+              </form>
+              <div id="peopleChips" class="chips" aria-label="사용자 목록"></div>
+            </div>
+          </aside>
+
+          <section class="panel list-panel">
+            <div class="panel-heading">
+              <h2>이번 달 내역</h2>
+              <select id="filterPerson" aria-label="사용자별 보기"></select>
+            </div>
+            <div id="insightStrip" class="insight-strip"></div>
+            <div class="view-switch segmented" aria-label="내역 보기 방식">
+              <button class="active" type="button" data-view="list">목록</button>
+              <button type="button" data-view="calendar">달력</button>
+            </div>
+            <div id="calendarView" class="calendar-view hidden"></div>
+            <h3 id="dayDetailTitle" class="day-detail-title hidden">선택한 날짜</h3>
+            <div id="entryList" class="entry-list"></div>
+          </section>
+
+          <aside class="panel stats-panel">
+            <div class="panel-heading">
+              <h2>분류별 지출</h2>
+            </div>
+            <div id="categoryStats" class="category-stats"></div>
+            <div class="couple-split">
+              <h3>부부별 사용</h3>
+              <div id="personStats"></div>
+            </div>
+            <div class="asset-section">
+              <div class="asset-heading">
+                <h3>현재 자산</h3>
+                <strong id="assetTotal">0원</strong>
+              </div>
+              <form id="assetForm" class="asset-form">
+                <label>
+                  분류
+                  <select id="assetCategoryInput">
+                    <option value="부동산">부동산</option>
+                    <option value="현금">현금</option>
+                    <option value="전세금">전세금</option>
+                    <option value="예금">예금</option>
+                    <option value="적금">적금</option>
+                    <option value="주식">주식</option>
+                    <option value="연금">연금</option>
+                    <option value="자동차">자동차</option>
+                    <option value="기타">기타</option>
+                  </select>
+                </label>
+                <label>
+                  이름
+                  <input id="assetNameInput" type="text" maxlength="24" placeholder="예: 전세 보증금" required />
+                </label>
+                <label>
+                  금액
+                  <input id="assetAmountInput" type="text" inputmode="numeric" placeholder="예: 300,000,000" required />
+                </label>
+                <button class="secondary-button" type="submit">자산 추가</button>
+              </form>
+              <div id="assetList" class="asset-list"></div>
+            </div>
+          </aside>
+        </section>
+      </section>
+
+      <p class="status-line" id="statusLine"></p>
+    </main>
+
+    <template id="entryTemplate">
+      <article class="entry-item">
+        <div class="entry-icon"></div>
+        <div class="entry-main">
+          <strong></strong>
+          <span></span>
+        </div>
+        <div class="entry-money"></div>
+        <button class="delete-button" type="button" aria-label="내역 삭제">×</button>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
