@@ -207,6 +207,12 @@ h3 {
   word-break: keep-all;
 }
 
+.summary-card small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .balance-card {
   background: linear-gradient(135deg, #1f6d50, #528b71);
   color: #fff;

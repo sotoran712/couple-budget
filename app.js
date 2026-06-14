@@ -65,6 +65,7 @@ const els = {
   incomeAmount: document.querySelector("#incomeAmount"),
   expenseAmount: document.querySelector("#expenseAmount"),
   savingRate: document.querySelector("#savingRate"),
+  savingAmount: document.querySelector("#savingAmount"),
   budgetProgress: document.querySelector("#budgetProgress"),
   entryForm: document.querySelector("#entryForm"),
   entryType: document.querySelector("#entryType"),
@@ -924,6 +925,7 @@ function renderSummary() {
   els.incomeAmount.textContent = formatWon(income);
   els.expenseAmount.textContent = formatWon(expense);
   els.savingRate.textContent = `${savingRate}%`;
+  els.savingAmount.textContent = `저축 가능 ${formatWon(remaining)}`;
   els.budgetProgress.style.width = `${progress}%`;
 
   const biggest = topByCategory(entries);
