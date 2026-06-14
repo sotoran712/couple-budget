@@ -28,6 +28,7 @@ let state = { people: [], entries: [], assets: [] };
 let selectedMonth = new Date();
 let selectedView = "list";
 let selectedDate = null;
+let editingEntry = null;
 const mobileQuery = window.matchMedia("(max-width: 680px)");
 
 const els = {
@@ -65,9 +66,6 @@ const els = {
   personInput: document.querySelector("#personInput"),
   fixedInput: document.querySelector("#fixedInput"),
   filterPerson: document.querySelector("#filterPerson"),
-  personForm: document.querySelector("#personForm"),
-  newPersonInput: document.querySelector("#newPersonInput"),
-  peopleChips: document.querySelector("#peopleChips"),
   insightStrip: document.querySelector("#insightStrip"),
   calendarView: document.querySelector("#calendarView"),
   dayDetailBar: document.querySelector("#dayDetailBar"),
@@ -84,6 +82,7 @@ const els = {
   quickEntryModal: document.querySelector("#quickEntryModal"),
   quickEntryForm: document.querySelector("#quickEntryForm"),
   quickEntryClose: document.querySelector("#quickEntryClose"),
+  quickEntryTitle: document.querySelector("#quickEntryTitle"),
   quickDateLabel: document.querySelector("#quickDateLabel"),
   quickDateInput: document.querySelector("#quickDateInput"),
   quickEntryType: document.querySelector("#quickEntryType"),
@@ -92,6 +91,7 @@ const els = {
   quickCategoryInput: document.querySelector("#quickCategoryInput"),
   quickPersonInput: document.querySelector("#quickPersonInput"),
   quickFixedInput: document.querySelector("#quickFixedInput"),
+  quickSubmitButton: document.querySelector("#quickSubmitButton"),
   quickAddButton: document.querySelector("#quickAddButton"),
   entryTemplate: document.querySelector("#entryTemplate"),
   statusLine: document.querySelector("#statusLine"),
@@ -193,10 +193,7 @@ function bindEvents() {
 
   document.querySelectorAll("[data-quick-type]").forEach((button) => {
     button.addEventListener("click", () => {
-      els.quickEntryType.value = button.dataset.quickType;
-      document.querySelectorAll("[data-quick-type]").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      renderQuickCategoryOptions();
+      setQuickType(button.dataset.quickType);
     });
   });
 
@@ -229,6 +226,9 @@ function bindEvents() {
       closeQuickEntryModal();
     }
   });
+  els.quickDateInput.addEventListener("input", () => {
+    els.quickDateLabel.textContent = els.quickDateInput.value.replaceAll("-", ".");
+  });
 
   els.quickAddButton.addEventListener("click", () => {
     openQuickEntryModal(selectedDate || `${monthKey(selectedMonth)}-01`);
@@ -239,7 +239,7 @@ function bindEvents() {
     const amount = parseMoney(els.quickAmountInput.value);
     if (!amount || amount < 1 || !household) return;
 
-    const saved = await saveEntry({
+    const entryPayload = {
       type: els.quickEntryType.value,
       date: els.quickDateInput.value,
       amount,
@@ -247,7 +247,8 @@ function bindEvents() {
       category: els.quickCategoryInput.value,
       personId: els.quickPersonInput.value || null,
       fixed: els.quickFixedInput.checked,
-    });
+    };
+    const saved = editingEntry ? await updateEntry(editingEntry, entryPayload) : await saveEntry(entryPayload);
     if (!saved) return;
 
     closeQuickEntryModal();
@@ -274,22 +275,6 @@ function bindEvents() {
     els.entryForm.reset();
     els.dateInput.value = todayISO();
     renderCategoryOptions();
-    await loadBudgetData();
-    render();
-  });
-
-  els.personForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const name = els.newPersonInput.value.trim();
-    if (!name || !household || state.people.some((person) => person.name === name)) return;
-
-    const { error } = await client.from("people").insert({ household_id: household.id, name });
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
-
-    els.newPersonInput.value = "";
     await loadBudgetData();
     render();
   });
@@ -439,8 +424,8 @@ async function createHousehold(name) {
   }
 
   await client.from("people").insert([
-    { household_id: id, name: "남편" },
-    { household_id: id, name: "아내" },
+    { household_id: id, name: "병현" },
+    { household_id: id, name: "윤경" },
     { household_id: id, name: "공동" },
   ]);
 
@@ -503,6 +488,86 @@ async function saveEntry({ type, date, amount, title, category, personId, fixed 
     fixed_item_id: fixedItemId,
     created_by: session.user.id,
   });
+
+  if (error) {
+    setStatus(error.message);
+    return false;
+  }
+
+  return true;
+}
+
+async function updateEntry(entry, { type, date, amount, title, category, personId, fixed }) {
+  let fixedItemId = entry.fixed_item_id || null;
+
+  if (fixed) {
+    const fixedPayload = {
+      type,
+      day_of_month: Number(date.slice(-2)),
+      amount,
+      title,
+      category,
+      person_id: personId,
+      active: true,
+    };
+
+    if (fixedItemId) {
+      const fixedUpdate = await client
+        .from("fixed_items")
+        .update(fixedPayload)
+        .eq("id", fixedItemId)
+        .eq("household_id", household.id);
+
+      if (fixedUpdate.error) {
+        setStatus(fixedUpdate.error.message);
+        return false;
+      }
+    } else {
+      const fixedCreate = await client
+        .from("fixed_items")
+        .insert({
+          household_id: household.id,
+          ...fixedPayload,
+          created_by: session.user.id,
+        })
+        .select("id")
+        .single();
+
+      if (fixedCreate.error) {
+        setStatus(fixedCreate.error.message);
+        return false;
+      }
+
+      fixedItemId = fixedCreate.data.id;
+    }
+  } else if (fixedItemId) {
+    const fixedDisable = await client
+      .from("fixed_items")
+      .update({ active: false })
+      .eq("id", fixedItemId)
+      .eq("household_id", household.id);
+
+    if (fixedDisable.error) {
+      setStatus(fixedDisable.error.message);
+      return false;
+    }
+
+    fixedItemId = null;
+  }
+
+  const { error } = await client
+    .from("transactions")
+    .update({
+      type,
+      date,
+      amount,
+      title,
+      category,
+      person_id: personId,
+      fixed_item_id: fixedItemId,
+    })
+    .eq("id", entry.id)
+    .eq("household_id", household.id);
 
   if (error) {
     setStatus(error.message);
@@ -672,30 +737,6 @@ function renderPeople() {
   els.filterPerson.innerHTML = ["<option value=\"전체\">전체</option>", ...state.people.map((person) => `<option value="${person.id}">${person.name}</option>`)].join("");
   els.filterPerson.value = ["전체", ...state.people.map((person) => person.id)].includes(currentFilter) ? currentFilter : "전체";
 
-  els.peopleChips.innerHTML = state.people
-    .map(
-      (person) => `
-        <span class="chip">
-          ${person.name}
-          <button type="button" data-remove-person="${person.id}" aria-label="${person.name} 삭제">×</button>
-        </span>
-      `,
-    )
-    .join("");
-
-  els.peopleChips.querySelectorAll("button").forEach((button) => {
-    button.addEventListener("click", () => removePerson(button.dataset.removePerson));
-  });
-}
-
-async function removePerson(personId) {
-  const { error } = await client.from("people").delete().eq("id", personId).eq("household_id", household.id);
-  if (error) {
-    setStatus(error.message);
-    return;
-  }
-  await loadBudgetData();
-  render();
 }
 
 function renderCategoryOptions() {
@@ -715,23 +756,37 @@ function renderOptions(select, options) {
   }
 }
 
-function openQuickEntryModal(date) {
+function setQuickType(type) {
+  els.quickEntryType.value = type;
+  document.querySelectorAll("[data-quick-type]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.quickType === type);
+  });
+  renderQuickCategoryOptions();
+}
+
+function openQuickEntryModal(date, entry = null) {
+  editingEntry = entry;
   selectedDate = date;
   els.quickDateInput.value = date;
   els.quickDateLabel.textContent = date.replaceAll("-", ".");
-  els.quickEntryType.value = "expense";
-  document.querySelectorAll("[data-quick-type]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.quickType === "expense");
-  });
-  renderQuickCategoryOptions();
+  els.quickEntryTitle.textContent = entry ? "내역 수정" : "날짜 기록";
+  els.quickSubmitButton.textContent = entry ? "수정 저장" : "저장";
   els.quickEntryForm.reset();
   els.quickDateInput.value = date;
-  els.quickEntryType.value = "expense";
+  setQuickType(entry?.type || "expense");
+  els.quickAmountInput.value = entry ? entry.amount.toLocaleString("ko-KR") : "";
+  els.quickTitleInput.value = entry?.title || "";
+  els.quickCategoryInput.value = entry?.category || els.quickCategoryInput.value;
+  if (entry?.person_id && state.people.some((person) => person.id === entry.person_id)) {
+    els.quickPersonInput.value = entry.person_id;
+  }
+  els.quickFixedInput.checked = !!entry?.fixed_item_id;
   els.quickEntryModal.classList.remove("hidden");
   requestAnimationFrame(() => els.quickAmountInput.focus());
 }
 
 function closeQuickEntryModal() {
+  editingEntry = null;
   els.quickEntryModal.classList.add("hidden");
 }
 
@@ -796,7 +851,11 @@ function renderEntries() {
     meta.textContent = `${entry.date} · ${entry.category} · ${entry.person}${entry.fixed_item_id ? " · 고정비" : ""}`;
     money.textContent = `${entry.type === "income" ? "+" : "-"}${formatWon(entry.amount)}`;
     money.classList.add(entry.type);
-    deleteButton.addEventListener("click", async () => {
+    node.addEventListener("click", () => {
+      openQuickEntryModal(entry.date, entry);
+    });
+    deleteButton.addEventListener("click", async (event) => {
+      event.stopPropagation();
       await client.from("transactions").delete().eq("id", entry.id).eq("household_id", household.id);
       await loadBudgetData();
       render();

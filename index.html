@@ -155,14 +155,6 @@
               <button class="primary-button" type="submit">추가</button>
             </form>
 
-            <div class="people-manager">
-              <h3>사용자</h3>
-              <form id="personForm" class="inline-form">
-                <input id="newPersonInput" type="text" maxlength="8" placeholder="이름 추가" />
-                <button class="secondary-button" type="submit">추가</button>
-              </form>
-              <div id="peopleChips" class="chips" aria-label="사용자 목록"></div>
-            </div>
           </aside>
 
           <section class="panel list-panel">
@@ -241,12 +233,15 @@
           </div>
           <button class="delete-button" id="quickEntryClose" type="button" aria-label="닫기">×</button>
         </div>
-        <input id="quickDateInput" type="hidden" />
         <input id="quickEntryType" type="hidden" value="expense" />
         <div class="segmented quick-type" aria-label="거래 유형">
           <button class="active" type="button" data-quick-type="expense">지출</button>
           <button type="button" data-quick-type="income">전월 수입</button>
         </div>
+        <label>
+          날짜
+          <input id="quickDateInput" type="date" required />
+        </label>
         <label>
           금액
           <input id="quickAmountInput" type="text" inputmode="numeric" placeholder="예: 45,000" required />
@@ -269,7 +264,7 @@
           <input id="quickFixedInput" type="checkbox" />
           <span>고정비로 매달 같은 날짜에 자동 기록</span>
         </label>
-        <button class="primary-button" type="submit">저장</button>
+        <button class="primary-button" id="quickSubmitButton" type="submit">저장</button>
       </form>
     </div>
 

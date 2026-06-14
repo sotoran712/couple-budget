@@ -533,6 +533,12 @@ button.calendar-cell:hover,
   border-radius: 8px;
   padding: 10px;
   background: #fff;
+  cursor: pointer;
+}
+
+.entry-item:hover {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(47, 125, 92, 0.1);
 }
 
 .entry-icon {
