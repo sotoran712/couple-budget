@@ -4,6 +4,7 @@ const DEFAULT_SUPABASE_CONFIG = {
   url: "https://lrfipkqzjwniirqpflyh.supabase.co",
   key: "sb_publishable_bjzhUXn7_U4lpaKlLdHzqg_3nGXQFI1",
 };
+const DEFAULT_HOUSEHOLD_ID = "96d28f72-3e68-4ecc-b92a-d689c895cb8a";
 
 const categories = {
   expense: ["식비", "카페", "생활", "교통", "주거", "데이트", "의료", "선물", "기타"],
@@ -440,8 +441,18 @@ async function refreshApp() {
 
   await loadHousehold();
   if (!household) {
+    const joined = await joinDefaultHousehold();
+    if (!joined) {
+      showSetup();
+      els.householdSetup.classList.add("hidden");
+      return;
+    }
+    await loadHousehold();
+  }
+
+  if (!household) {
     showSetup();
-    els.householdSetup.classList.remove("hidden");
+    els.householdSetup.classList.add("hidden");
     return;
   }
 
@@ -541,6 +552,23 @@ async function joinHousehold(inviteCode) {
 
   setStatus("우리집에 참여했습니다.");
   await refreshApp();
+}
+
+async function joinDefaultHousehold() {
+  if (!session?.user?.id) return false;
+  const { error } = await client.from("household_members").insert({
+    household_id: DEFAULT_HOUSEHOLD_ID,
+    user_id: session.user.id,
+    role: "member",
+  });
+
+  if (error) {
+    setStatus("기본 가계부 연결에 실패했습니다. Supabase 멤버 권한을 확인해 주세요.");
+    return false;
+  }
+
+  setStatus("");
+  return true;
 }
 
 async function saveEntry({ type, date, amount, title, category, personId, fixed }) {
